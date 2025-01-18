@@ -713,19 +713,53 @@ static int GLimp_SetMode(int mode, qboolean fullscreen, qboolean noborder, qbool
 
 		if( fullscreen )
 		{
-	
-			 SDL_DisplayMode *fullDisplayMode = SDL_GetWindowFullscreenMode(SDL_window);
-			 if(fullDisplayMode==NULL){
-				ri.Printf( PRINT_DEVELOPER, "SDL_SetWindowDisplayMode failed: %s\n", SDL_GetError());
-			 }
+			SDL_DisplayMode mode;
 
-			if(!SDL_SetWindowFullscreenMode( SDL_window,fullDisplayMode))
+			switch( testColorBits )
 			{
-				ri.Printf( PRINT_DEVELOPER, "SDL_SetWindowDisplayMode failed: %s\n", SDL_GetError( ) );
-				continue;
+				case 16: mode.format = SDL_PIXELFORMAT_RGB565; break;
+				case 24: mode.format = SDL_PIXELFORMAT_RGB24;  break;
+				default: ri.Printf( PRINT_DEVELOPER, "testColorBits is %d, can't fullscreen\n", testColorBits ); continue;
 			}
-		}
 
+			mode.w = glConfig.vidWidth;
+			mode.h = glConfig.vidHeight;
+			mode.refresh_rate = glConfig.displayFrequency = ri.Cvar_VariableIntegerValue( "r_displayRefresh" );
+			SDL_DisplayID display = SDL_GetPrimaryDisplay();
+    		int num_modes = 0;
+   			SDL_DisplayMode **modes = SDL_GetFullscreenDisplayModes(display, &num_modes);
+			if (modes)
+			{
+				for (i = 0; i < num_modes; ++i)
+				{
+					SDL_DisplayMode *displayMode = modes[i];
+					if (displayMode->h == glConfig.vidHeight && displayMode->w == glConfig.vidWidth && displayMode->refresh_rate == glConfig.displayFrequency
+					&& displayMode->format==mode.format)
+					{
+						if (!SDL_SetWindowFullscreenMode(SDL_window, displayMode))
+						{
+							ri.Printf(PRINT_DEVELOPER, "SDL_SetWindowDisplayMode failed: %s\n", SDL_GetError());
+							SDL_free(modes);
+							continue;
+
+						}
+					}
+				}
+				SDL_free(modes);
+			}
+			// Or just use SDL_GetWindowFullscreenMode get the displaymode. 
+			// SDL_DisplayMode *fullDisplayMode = SDL_GetWindowFullscreenMode(SDL_window);
+			// if(fullDisplayMode==NULL){
+			//	ri.Printf( PRINT_DEVELOPER, "SDL_SetWindowDisplayMode failed: %s\n", SDL_GetError());
+			//}
+			//if (!SDL_SetWindowFullscreenMode(SDL_window, fullDisplayMode))
+			//	{
+			//		ri.Printf(PRINT_DEVELOPER, "SDL_SetWindowDisplayMode failed: %s\n", SDL_GetError());
+			//		SDL_free(modes);
+			//		continue;
+			//	}
+		
+		}
 		SDL_SetWindowIcon( SDL_window, icon );
 
 		for ( type = 0; type < numContexts; type++ ) {
